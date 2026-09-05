@@ -211,7 +211,8 @@
       <div id="resultSection" style="display:none">
         <div class="summary" id="summaryChips"></div>
         <div class="action-bar">
-          <button class="btn btn-accent" id="btnImportCorrections">📍 Google Haritalar Düzeltmelerini Yükle (KML)</button>
+          <button class="btn btn-accent" id="btnGoToMaps">🗺️ Google Haritalar'a Yükle</button>
+          <button class="btn btn-accent" id="btnImportCorrections">📍 Düzeltmeleri Yükle (KML)</button>
           <button class="btn btn-line" id="btnCheckAll">Uygulama İçinde Kontrol Et (opsiyonel)</button>
           <button class="btn btn-line" id="btnRecheckFailed">↻ Bulunamayanları Tekrar Dene</button>
           <input type="file" id="correctionsFileInput" accept=".kml,.kmz" style="display:none">
@@ -231,10 +232,10 @@
         <div class="tips">
           <h3>Google Haritalarım ile çalışma akışı</h3>
           <ol>
-            <li><b>İndir (Excel)</b> ile listeyi indirin, <b>Google Haritalarım</b>'da o okula ait yeni bir katmana içe aktarın (başlık: <b>Ad Soyad</b>, konum: <b>Adres</b>).</li>
+            <li><b>🗺️ Google Haritalar'a Yükle</b> butonuna basın — dosya iner ve Google Haritalar yeni sekmede açılır. Orada bu okul için "Yeni bir harita oluştur" (veya varsa mevcut haritasını açın) deyip indirilen dosyayı bir katmana içe aktarın (başlık: <b>Ad Soyad</b>, konum: <b>Adres</b>).</li>
             <li>Google Haritalar'da yanlış çıkan pinleri sürükleyip doğru yere taşıyın.</li>
             <li>Katmanın <b>⋮ menüsü &gt; "KML'ye aktar"</b> ile düzelttiğiniz katmanı bilgisayarınıza indirin.</li>
-            <li>O dosyayı yukarıdaki <b>"Google Haritalar Düzeltmelerini Yükle"</b> butonuyla buraya yükleyin — isim eşleşmesiyle ilgili öğrencilerin konumu burada da otomatik güncellenir.</li>
+            <li>O dosyayı <b>"📍 Düzeltmeleri Yükle (KML)"</b> butonuyla buraya yükleyin — isim eşleşmesiyle ilgili öğrencilerin konumu burada da otomatik güncellenir.</li>
           </ol>
         </div>
       </div>
@@ -995,6 +996,12 @@
     });
 
     document.getElementById('btnDownload').addEventListener('click', downloadResult);
+    document.getElementById('btnGoToMaps').addEventListener('click', function(){
+      if(!school) return;
+      downloadResult();
+      window.open('https://mymaps.google.com/', '_blank');
+      showToast('Dosya indirildi. Açılan sekmede "Yeni bir harita oluştur" (veya bu okulun mevcut haritasını açın) ve indirilen dosyayı bir katmana içe aktarın.', 'success');
+    });
     document.getElementById('btnImportCorrections').addEventListener('click', function(){ if(school) document.getElementById('correctionsFileInput').click(); });
     document.getElementById('correctionsFileInput').addEventListener('change', function(e){ var f=e.target.files[0]; if(f) handleMapsCorrectionFile(f); e.target.value=''; });
     document.getElementById('btnCheckAll').addEventListener('click', function(){
