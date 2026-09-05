@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Çoklu Okul Servis Yönetimi</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --panel:#111826; --panel-2:#1A2438; --panel-line:#2B3446; --panel-ink:#E8EAF0; --panel-ink-soft:#9AA3B2;
+    --paper:#FAF8F3; --paper-line:#E4E0D3; --ink:#16202B; --ink-soft:#5B6472;
+    --accent:#E8A33D; --accent-ink:#3A2607; --danger:#D6524A; --warn-bg:#FFF2CC; --warn-line:#E8B93D;
+    --success:#4C9A6A; --radius:12px; --radius-sm:7px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--paper); color:var(--ink); }
+  button,input,select{ font-family:inherit; }
+  button{ cursor:pointer; }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---------- Login ---------- */
+  #loginScreen{ position:fixed; inset:0; background:var(--panel); display:flex; align-items:center; justify-content:center; z-index:500; }
+  .login-card{ width:100%; max-width:340px; padding:32px; }
+  .login-mark{ width:44px;height:44px;border-radius:50%; background:var(--accent); color:var(--accent-ink); font-weight:800; display:flex;align-items:center;justify-content:center; font-size:18px; margin:0 auto 18px; }
+  .login-card h1{ color:#fff; text-align:center; font-size:17px; margin:0 0 4px; }
+  .login-card .sub{ color:var(--panel-ink-soft); text-align:center; font-size:12.5px; margin:0 0 24px; }
+  .login-card input{ width:100%; background:var(--panel-2); border:1px solid var(--panel-line); color:#fff; border-radius:8px; padding:11px 12px; font-size:13.5px; margin-bottom:12px; }
+  .login-card .btn{ width:100%; padding:11px; margin-top:6px; }
+  .login-err{ color:#FF9A8F; font-size:12px; margin-top:10px; text-align:center; min-height:16px; }
+  #appRoot{ display:none; }
+  #appRoot.ready{ display:block; }
+
+  #shell{ display:flex; height:100vh; overflow:hidden; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{ width:270px; min-width:270px; background:var(--panel); color:var(--panel-ink); display:flex; flex-direction:column; border-right:1px solid var(--panel-line); }
+  .brand{ padding:16px 16px 12px; border-bottom:1px solid var(--panel-line); display:flex; align-items:center; gap:10px; }
+  .brand-mark{ width:32px;height:32px;border-radius:50%;background:var(--accent); display:flex;align-items:center;justify-content:center; font-weight:800; color:var(--accent-ink); flex:none; }
+  .brand-title{ font-size:13.5px; font-weight:700; }
+  .brand-sub{ font-size:10.5px; color:var(--panel-ink-soft); }
+  .school-add{ margin:12px 14px; }
+  .btn{ border:none; border-radius:8px; padding:9px 12px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+  .btn-accent{ background:var(--accent); color:var(--accent-ink); }
+  .btn-accent:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn-ghost-dark{ background:var(--panel-2); color:var(--panel-ink); border:1px solid var(--panel-line); }
+  .btn-line{ background:#fff; border:1px solid var(--paper-line); color:var(--ink); }
+  .btn-line:hover{ background:#F1EEE5; }
+  .btn-w{ width:100%; }
+
+  .school-list{ flex:1; overflow-y:auto; padding:4px 10px 14px; }
+  .school-item{ display:flex; align-items:center; gap:9px; padding:10px 9px; border-radius:9px; cursor:pointer; margin-bottom:3px; }
+  .school-item:hover{ background:var(--panel-2); }
+  .school-item.active{ background:var(--panel-2); box-shadow:inset 3px 0 0 var(--accent); }
+  .school-mark{ width:28px;height:28px;border-radius:8px; background:#28334A; display:flex;align-items:center;justify-content:center; font-size:12px; font-weight:800; flex:none; }
+  .school-name{ font-size:13px; font-weight:700; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .school-meta{ font-size:10.5px; color:var(--panel-ink-soft); }
+  .school-meta .bad{ color:var(--accent); }
+  .school-tools{ display:none; gap:2px; }
+  .school-item:hover .school-tools{ display:flex; }
+  .mini-icon{ background:none;border:none;color:var(--panel-ink-soft); font-size:12px; padding:3px 5px; border-radius:5px; }
+  .mini-icon:hover{ color:#fff; background:#242F47; }
+  .side-empty{ padding:14px; font-size:12px; color:var(--panel-ink-soft); line-height:1.5; }
+  .sidebar-footer{ padding:12px 14px; border-top:1px solid var(--panel-line); display:flex; align-items:center; gap:8px; }
+  .sidebar-footer .who{ flex:1; min-width:0; font-size:11.5px; color:var(--panel-ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sidebar-footer button{ background:none; border:1px solid var(--panel-line); color:var(--panel-ink-soft); font-size:11px; padding:6px 10px; border-radius:7px; }
+  .sidebar-footer button:hover{ color:#fff; background:var(--panel-2); }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; overflow-y:auto; }
+  .topbar{ display:flex; align-items:center; gap:10px; padding:14px 22px; background:var(--paper); border-bottom:1px solid var(--paper-line); flex-wrap:wrap; position:sticky; top:0; z-index:10; }
+  .hamburger{ display:none; background:none; border:1px solid var(--paper-line); border-radius:8px; width:36px;height:36px; }
+  .topbar h2{ font-size:15px; margin:0; }
+  .topbar .grow{ flex:1; }
+  .field-inline{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); }
+  .field-inline input{ width:100px; border:1px solid var(--paper-line); border-radius:6px; padding:6px 8px; font-size:12.5px; }
+
+  main .content{ padding:18px 22px 60px; }
+
+  .dropzone{ border:2px dashed var(--paper-line); border-radius:var(--radius); padding:40px 20px; text-align:center; background:#fff; color:var(--ink-soft); font-size:13.5px; cursor:pointer; }
+  .dropzone.drag{ border-color:var(--accent); background:#FFF8EC; }
+  .dropzone .big{ font-size:26px; margin-bottom:8px; }
+
+  .summary{ display:flex; gap:10px; flex-wrap:wrap; margin:16px 0; }
+  .chip{ background:#fff; border:1px solid var(--paper-line); border-radius:999px; padding:7px 14px; font-size:12.5px; font-weight:600; }
+  .chip.warn{ background:var(--warn-bg); border-color:var(--warn-line); color:#7A5B00; }
+  .chip.ok{ background:#E9F5EE; border-color:#BFE3CD; color:#256B44; }
+
+  .action-bar{ display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+
+  .table-wrap{ overflow-x:auto; border-radius:var(--radius); border:1px solid var(--paper-line); background:#fff; }
+  table{ width:100%; border-collapse:collapse; }
+  thead th{ background:#F1EEE5; text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--ink-soft); padding:9px 10px; border-bottom:1px solid var(--paper-line); white-space:nowrap; }
+  tbody td{ padding:5px 8px; border-bottom:1px solid #EFEBE0; vertical-align:middle; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr.flag-row{ background:var(--warn-bg); }
+  td.col-servis input{ font-weight:700; }
+  td input{ width:100%; border:1px solid transparent; background:transparent; border-radius:5px; padding:6px 6px; font-size:12.5px; color:var(--ink); }
+  td input:hover{ border-color:var(--paper-line); }
+  td input:focus{ border-color:var(--accent); background:#fff; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px; white-space:nowrap; }
+  .badge.ok{ background:#E9F5EE; color:#256B44; }
+  .badge.fail{ background:#FBE7E5; color:#A4372E; }
+  .badge.pending{ background:#EFEBE0; color:#7A6E58; }
+  .row-actions{ display:flex; gap:4px; margin-top:4px; }
+  .tiny-btn{ background:none; border:1px solid var(--paper-line); color:var(--ink); font-size:10.5px; padding:3px 7px; border-radius:6px; }
+  .tiny-btn:hover{ background:#F1EEE5; }
+
+  #mapPanel{ margin-top:20px; border:1px solid var(--paper-line); border-radius:var(--radius); overflow:hidden; }
+  #mapPanel .map-head{ padding:10px 14px; background:#fff; border-bottom:1px solid var(--paper-line); font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:10px; }
+  #map{ height:360px; background:#E7E4DA; }
+  .pin{ width:14px;height:14px;border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.45); }
+  .popup-actions{ display:flex; gap:6px; margin-top:8px; }
+  .popup-actions button{ flex:1; font-size:11px; font-weight:600; padding:6px 4px; border-radius:6px; border:1px solid var(--paper-line); background:#fff; }
+
+  .progress-bar{ position:fixed; left:290px; right:18px; bottom:18px; background:var(--panel); color:#fff; border-radius:var(--radius); padding:12px 16px; display:none; align-items:center; gap:12px; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .progress-bar.show{ display:flex; }
+  .progress-track{ flex:1; height:6px; border-radius:4px; background:#2B3446; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--accent); width:0%; }
+  .progress-text{ font-size:12px; font-weight:600; white-space:nowrap; }
+  .progress-cancel{ background:none;border:1px solid #3A4560; color:#fff; border-radius:6px; padding:5px 10px; font-size:11.5px; }
+
+  .banner{ position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--panel); color:#fff; padding:9px 16px; border-radius:999px; font-size:12.5px; display:none; align-items:center; gap:10px; z-index:70; box-shadow:0 6px 18px rgba(0,0,0,.25); }
+  .banner.show{ display:flex; }
+  .banner button{ background:var(--accent); color:var(--accent-ink); border:none; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; }
+
+  .overlay{ position:fixed; inset:0; background:rgba(15,20,28,.55); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .overlay.show{ display:flex; }
+  .modal{ background:#fff; border-radius:14px; width:100%; max-width:420px; padding:22px; }
+  .modal h3{ margin:0 0 12px; font-size:16px; }
+  .modal input{ width:100%; border:1px solid var(--paper-line); border-radius:8px; padding:9px 10px; font-size:13.5px; margin-bottom:14px; }
+  .modal-actions{ display:flex; gap:10px; }
+  .modal-actions .btn{ flex:1; }
+
+  .tips{ margin-top:20px; background:var(--panel); color:var(--panel-ink); border-radius:var(--radius); padding:16px 20px; font-size:13px; line-height:1.6; }
+  .tips h3{ margin:0 0 8px; font-size:13.5px; }
+  .tips ol{ margin:0; padding-left:18px; }
+  .tips b{ color:var(--accent); }
+
+  #toastWrap{ position:fixed; top:16px; right:16px; z-index:600; display:flex; flex-direction:column; gap:8px; }
+  .toast{ background:var(--panel); color:#fff; padding:11px 16px; border-radius:9px; font-size:12.5px; box-shadow:0 8px 20px rgba(0,0,0,.3); max-width:300px; }
+  .toast.err{ background:var(--danger); }
+  .toast.ok{ background:var(--success); }
+
+  @media (max-width:880px){
+    .sidebar{ position:fixed; left:0; top:0; bottom:0; transform:translateX(-100%); transition:transform .2s ease; z-index:50; }
+    .sidebar.open{ transform:translateX(0); }
+    .hamburger{ display:flex; align-items:center; justify-content:center; }
+    .progress-bar{ left:18px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-mark">S</div>
+    <h1>Servis Yönetimi</h1>
+    <div class="sub">Devam etmek için giriş yapın</div>
+    <input id="loginEmail" type="email" placeholder="E-posta" autocomplete="username">
+    <input id="loginPass" type="password" placeholder="Şifre" autocomplete="current-password">
+    <button class="btn btn-accent" id="btnLogin">Giriş Yap</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="appRoot">
+<div id="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <div>
+        <div class="brand-title">Servis Yönetimi</div>
+        <div class="brand-sub">Okul bazlı liste ve harita kontrolü</div>
+      </div>
+    </div>
+    <div class="school-add">
+      <button class="btn btn-accent btn-w" id="btnNewSchool">+ Yeni Okul Ekle</button>
+    </div>
+    <div class="school-list" id="schoolList"></div>
+    <div class="sidebar-footer">
+      <div class="who" id="whoAmI"></div>
+      <button id="btnLogout">Çıkış</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="hamburger btn-line" id="btnHamburger">☰</button>
+      <h2 id="schoolTitle">Okul seçilmedi</h2>
+      <div class="grow"></div>
+      <div class="field-inline">Varsayılan şehir: <input id="defaultCity" placeholder="Konya"></div>
+      <button class="btn btn-line" id="btnImport">Excel Yükle</button>
+      <button class="btn btn-accent" id="btnDownload" disabled>İndir (Excel)</button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+    </div>
+
+    <div class="content" id="content">
+      <div id="noSchoolState" class="side-empty" style="padding:40px 0; text-align:center; color:var(--ink-soft);">
+        Başlamak için soldan <strong>+ Yeni Okul Ekle</strong> ile ilk okulunuzu oluşturun.
+      </div>
+
+      <div id="dropSection" style="display:none">
+        <div class="dropzone" id="dropzone">
+          <div class="big">📄</div>
+          <div><strong>Bu okulun Excel dosyasını buraya sürükleyin</strong> ya da tıklayıp seçin</div>
+          <div style="margin-top:6px;font-size:12px;">.xlsx / .xls · sütun adları farklı olsa da otomatik tanınır</div>
+        </div>
+      </div>
+
+      <div id="resultSection" style="display:none">
+        <div class="summary" id="summaryChips"></div>
+        <div class="action-bar">
+          <button class="btn btn-line" id="btnCheckAll">📍 Tüm Adresleri Haritada Kontrol Et</button>
+          <button class="btn btn-line" id="btnRecheckFailed">↻ Bulunamayanları Tekrar Dene</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="mapPanel">
+          <div class="map-head">🗺 Harita önizleme — bulunan adresler burada görünür, yanlış konumu düzeltmek için işaretçiye tıklayın</div>
+          <div id="map"></div>
+        </div>
+
+        <div class="tips">
+          <h3>Google Haritalarım'a yükleme</h3>
+          <ol>
+            <li>İndirilen dosyayı <b>Google Haritalarım</b>'da o okula ait yeni bir katmana içe aktarın.</li>
+            <li>Başlık için <b>Ad Soyad</b>, konum için <b>Adres</b> (varsa <b>Enlem</b>/<b>Boylam</b> sütunlarını da eşleştirin — bu ikisi doluysa Maps adresi aramak yerine doğrudan o noktayı kullanır).</li>
+            <li>İçe aktardıktan sonra <b>Stil &gt; Yer gruplandırma ölçütü: Servis</b> ile her servisi otomatik farklı renkte gösterin.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner" id="pinBanner">
+      <span id="pinBannerText">Konumu haritada işaretlemek için haritaya tıklayın</span>
+      <button id="pinBannerCancel">Vazgeç</button>
+    </div>
+
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-text" id="progressText">0/0</div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <button class="progress-cancel" id="progressCancel">Durdur</button>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="schoolModalOverlay">
+  <div class="modal">
+    <h3 id="schoolModalTitle">Yeni Okul</h3>
+    <input id="schoolNameInput" placeholder="Okul adı">
+    <div class="modal-actions">
+      <button class="btn btn-line" id="schoolModalCancel">Vazgeç</button>
+      <button class="btn btn-accent" id="schoolModalSave">Kaydet</button>
+    </div>
+  </div>
+</div>
+</div><!-- /appRoot -->
+
+<div id="toastWrap"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Firebase ----------
+  var firebaseConfig = {
+    apiKey: "AIzaSyCVe4oqN_Vu3vHy66LYz_cbNjqO5T3Fr0k",
+    authDomain: "maps-mfd.firebaseapp.com",
+    projectId: "maps-mfd",
+    storageBucket: "maps-mfd.firebasestorage.app",
+    messagingSenderId: "763978296982",
+    appId: "1:763978296982:web:e75c80ccf10e797c9e9cb7",
+    measurementId: "G-QP9M8HW3WS"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var auth = firebase.auth();
+  var db = firebase.firestore();
+  var schoolsRef = db.collection('schools');
+  function rowsRef(schoolId){ return schoolsRef.doc(schoolId).collection('rows'); }
+
+  var PALETTE = ['#E8A33D','#3A7CA5','#7CB342','#B85C9E','#D6524A','#4CB4A6','#8D6E63','#5C6BC0','#EF7B45','#527A5A','#C2A33E','#7690A6'];
+
+  var appIndex = { activeId: null, schools: [] };
+  var school = null;
+  var map, markersLayer, manualPinHandler = null;
+  var schoolModalMode = 'new';
+  var unsubscribeSchools = null;
+  var firstSnapshotHandled = false;
+  var switchToken = 0;
+
+  function escapeHtml(str){ return String(str==null?'':str).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
+  function showToast(msg, kind){
+    var el = document.createElement('div');
+    el.className = 'toast' + (kind==='error'?' err':kind==='success'?' ok':'');
+    el.textContent = msg;
+    document.getElementById('toastWrap').appendChild(el);
+    setTimeout(function(){ el.remove(); }, 4200);
+  }
+  function tr_lower(s){ return String(s==null?'':s).replace(/İ/g,'i').replace(/I/g,'ı').toLocaleLowerCase('tr-TR'); }
+  function tr_upper_char(ch){ if(ch==='i') return 'İ'; if(ch==='ı') return 'I'; return ch.toLocaleUpperCase('tr-TR'); }
+  function titleTr(s){
+    var words = String(s==null?'':s).trim().split(/\s+/);
+    var out = [];
+    for(var i=0;i<words.length;i++){ var w = words[i]; if(!w) continue; var wl = tr_lower(w); out.push(tr_upper_char(wl[0]) + wl.slice(1)); }
+    return out.join(' ');
+  }
+  function normHeader(s){
+    return String(s==null?'':s).toLocaleUpperCase('tr-TR').replace(/İ/g,'I')
+      .replace(/Ç/g,'C').replace(/Ğ/g,'G').replace(/Ö/g,'O').replace(/Ş/g,'S').replace(/Ü/g,'U')
+      .replace(/[^A-Z0-9]/g,'');
+  }
+  function chunk(arr, size){ var out=[]; for(var i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; }
+
+  function showLogin(err){
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appRoot').classList.remove('ready');
+    document.getElementById('loginErr').textContent = err || '';
+  }
+  function showApp(user){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appRoot').classList.add('ready');
+    document.getElementById('whoAmI').textContent = user.email || '';
+  }
+  function friendlyAuthError(code){
+    if(code==='auth/invalid-email') return 'Geçersiz e-posta adresi.';
+    if(code==='auth/invalid-credential' || code==='auth/wrong-password' || code==='auth/user-not-found') return 'E-posta veya şifre hatalı.';
+    if(code==='auth/too-many-requests') return 'Çok fazla deneme yapıldı, biraz sonra tekrar deneyin.';
+    return 'Giriş yapılamadı. Bilgileri kontrol edin.';
+  }
+  function doLogin(){
+    var email = document.getElementById('loginEmail').value.trim();
+    var pass = document.getElementById('loginPass').value;
+    if(!email || !pass){ document.getElementById('loginErr').textContent = 'E-posta ve şifre girin.'; return; }
+    document.getElementById('loginErr').textContent = '';
+    auth.signInWithEmailAndPassword(email, pass).catch(function(err){
+      document.getElementById('loginErr').textContent = friendlyAuthError(err.code);
+    });
+  }
+  function doLogout(){
+    if(unsubscribeSchools){ unsubscribeSchools(); unsubscribeSchools = null; }
+    firstSnapshotHandled = false;
+    appIndex = { activeId: null, schools: [] };
+    school = null;
+    auth.signOut();
+  }
+
+  auth.onAuthStateChanged(function(user){
+    if(user){ showApp(user); startSchoolsListener(); }
+    else{ showLogin(); }
+  });
+
+  function startSchoolsListener(){
+    if(unsubscribeSchools) return;
+    unsubscribeSchools = schoolsRef.onSnapshot(function(snap){
+      appIndex.schools = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+      renderSidebar();
+      if(!firstSnapshotHandled){
+        firstSnapshotHandled = true;
+        var savedId = localStorage.getItem('activeSchoolId');
+        var exists = appIndex.schools.find(function(s){ return s.id===savedId; });
+        if(exists) switchSchool(savedId);
+        else if(appIndex.schools.length) switchSchool(appIndex.schools[0].id);
+        else { renderHeader(); renderAll(); }
+      }else if(appIndex.activeId && school){
+        var cur = appIndex.schools.find(function(s){ return s.id===appIndex.activeId; });
+        if(cur){ school.name = cur.name; school.defaultCity = cur.defaultCity; renderHeader(); }
+      }
+    }, function(err){ console.error(err); showToast('Okul listesi alınamadı: ' + err.message, 'error'); });
+  }
+
+  function openSchoolModal(mode){
+    schoolModalMode = mode;
+    document.getElementById('schoolModalTitle').textContent = mode==='new' ? 'Yeni Okul' : 'Okulu Yeniden Adlandır';
+    document.getElementById('schoolNameInput').value = mode==='rename' && school ? school.name : '';
+    document.getElementById('schoolModalOverlay').classList.add('show');
+    setTimeout(function(){ document.getElementById('schoolNameInput').focus(); }, 50);
+  }
+  function closeSchoolModal(){ document.getElementById('schoolModalOverlay').classList.remove('show'); }
+
+  async function saveSchoolModal(){
+    var name = document.getElementById('schoolNameInput').value.trim();
+    if(!name){ showToast('Okul adı gerekli.', 'error'); return; }
+    try{
+      if(schoolModalMode==='new'){
+        var ref = await schoolsRef.add({ name: name, defaultCity: 'Konya', columns: [], groupColors: {}, studentCount: 0, missingCount: 0 });
+        closeSchoolModal();
+        switchSchool(ref.id);
+      }else{
+        await schoolsRef.doc(appIndex.activeId).update({ name: name });
+        school.name = name;
+        closeSchoolModal();
+        renderHeader();
+      }
+    }catch(e){ console.error(e); showToast('Kaydedilemedi: ' + e.message, 'error'); }
+  }
+
+  async function deleteSchool(id){
+    var entry = appIndex.schools.find(function(s){ return s.id===id; });
+    if(!entry) return;
+    if(!confirm('"' + entry.name + '" okulu ve tüm listesi silinecek. Emin misiniz?')) return;
+    try{
+      var snap = await rowsRef(id).get();
+      var batches = chunk(snap.docs, 400);
+      for(var i=0;i<batches.length;i++){
+        var b = db.batch();
+        batches[i].forEach(function(d){ b.delete(d.ref); });
+        await b.commit();
+      }
+      await schoolsRef.doc(id).delete();
+      if(appIndex.activeId===id){
+        appIndex.activeId = null; school = null; localStorage.removeItem('activeSchoolId');
+        var remaining = appIndex.schools.filter(function(s){ return s.id!==id; });
+        if(remaining.length) switchSchool(remaining[0].id); else { renderHeader(); renderAll(); }
+      }
+      showToast('Okul silindi.', 'success');
+    }catch(e){ console.error(e); showToast('Silinemedi: ' + e.message, 'error'); }
+  }
+
+  async function switchSchool(id){
+    var myToken = ++switchToken;
+    appIndex.activeId = id;
+    localStorage.setItem('activeSchoolId', id);
+    if(window.innerWidth<=880) document.getElementById('sidebar').classList.remove('open');
+    renderSidebar();
+    try{
+      var doc = await schoolsRef.doc(id).get();
+      if(!doc.exists) return;
+      var data = doc.data();
+      var rowsSnap = await rowsRef(id).get();
+      var rows = rowsSnap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+      if(myToken!==switchToken) return;
+      school = { id:id, name:data.name, defaultCity:data.defaultCity||'Konya', columns:data.columns||[], groupColors:data.groupColors||{}, rows: rows };
+      renderHeader();
+      renderAll();
+      var pending = school.rows.filter(function(r){ return !(r.lat && r.lng) && r.geoStatus!=='fail'; }).map(function(r){ return r.id; });
+      if(pending.length) enqueueGeocode(pending);
+    }catch(e){ console.error(e); showToast('Okul yüklenemedi: ' + e.message, 'error'); }
+  }
+
+  function groupColor(label){
+    if(!school.groupColors) school.groupColors = {};
+    if(school.groupColors[label]) return school.groupColors[label];
+    var used = Object.keys(school.groupColors).length;
+    var c = PALETTE[used % PALETTE.length];
+    school.groupColors[label] = c;
+    schoolsRef.doc(school.id).update({ groupColors: school.groupColors }).catch(function(){});
+    return c;
+  }
+
+  async function updateIndexStatsForActive(){
+    if(!appIndex.activeId || !school) return;
+    var studentCount = school.rows.length;
+    var missingCount = school.rows.filter(function(r){ return r.servisFlag || !(r.lat && r.lng); }).length;
+    try{ await schoolsRef.doc(appIndex.activeId).update({ studentCount: studentCount, missingCount: missingCount }); }
+    catch(e){ console.error(e); }
+  }
+
+  var ALIAS = {
+    adSoyad: ['ADISOYADI','ADSOYAD','ISIM'],
+    adi: ['ADI'], soyadi: ['SOYADI'],
+    adres: ['ADRES'], mahalle: ['MAHALLE'], cad: ['CAD','CADDE'],
+    sehir: ['SEHIR'],
+    servis: ['SERVIS','GURUBU','GRUP'], nu: ['NU'],
+    sinif: ['SINIF'],
+    tel: ['TEL','TELEFON'], tel2: ['TEL2','TELEFON2'],
+    anneAdi: ['ANNEADI'], anneGsm: ['ANNEGSM','ANNETEL'],
+    babaAdi: ['BABAADI'], babaGsm: ['BABAGSM','BABATEL'],
+    plaka: ['PLK','PLAKA'], fiyat: ['FIYAT'], cinsiyet: ['KE','CINSIYET'],
+    sira: ['SIRA','NO']
+  };
+  var ALL_ALIASES = Object.keys(ALIAS).reduce(function(a,k){ return a.concat(ALIAS[k]); }, []);
+
+  function findHeaderRow(rows){
+    var bestIdx=-1, bestScore=0;
+    for(var i=0;i<Math.min(rows.length,12);i++){
+      var normed = (rows[i]||[]).map(normHeader);
+      var score = normed.filter(function(h){ return ALL_ALIASES.indexOf(h)>-1; }).length;
+      if(score>bestScore){ bestScore=score; bestIdx=i; }
+    }
+    return bestScore>=2 ? bestIdx : -1;
+  }
+  function colIndex(header, aliases){ for(var a=0;a<aliases.length;a++){ var idx=header.indexOf(aliases[a]); if(idx>-1) return idx; } return -1; }
+  function cellStr(row, idx){ if(idx<0) return ''; var v=row[idx]; return v==null?'':String(v).trim(); }
+
+  function parseWorkbook(rows){
+    var headerIdx = findHeaderRow(rows);
+    if(headerIdx===-1) return { rows: [], columns: [] };
+    var header = rows[headerIdx].map(normHeader);
+    var idx = {};
+    Object.keys(ALIAS).forEach(function(k){ idx[k]=colIndex(header, ALIAS[k]); });
+
+    var hasSeparateName = idx.adi>-1 && idx.soyadi>-1;
+    var hasCombinedName = idx.adSoyad>-1;
+    var hasTelPair = idx.tel>-1 || idx.tel2>-1;
+    var hasParentPair = idx.anneAdi>-1 || idx.anneGsm>-1 || idx.babaAdi>-1 || idx.babaGsm>-1;
+    var hasSira = idx.sira>-1, hasSinif = idx.sinif>-1, hasPlaka = idx.plaka>-1, hasFiyat = idx.fiyat>-1, hasCinsiyet = idx.cinsiyet>-1;
+
+    var out = [];
+    for(var r=headerIdx+1; r<rows.length; r++){
+      var row = rows[r] || [];
+      var adSoyad = '';
+      if(hasCombinedName) adSoyad = titleTr(cellStr(row, idx.adSoyad));
+      else if(hasSeparateName) adSoyad = (titleTr(cellStr(row, idx.adi)) + ' ' + titleTr(cellStr(row, idx.soyadi))).trim();
+      if(!adSoyad) continue;
+
+      var adres = cellStr(row, idx.adres);
+      if(!adres){ var m=cellStr(row, idx.mahalle), c=cellStr(row, idx.cad); adres=[m,c].filter(Boolean).join(' '); }
+      var sehirCol = cellStr(row, idx.sehir).replace(/^\//,'');
+
+      var servisRaw = cellStr(row, idx.servis) || cellStr(row, idx.nu);
+      var servisFlag = !servisRaw;
+      var servis = servisRaw;
+      if(servisRaw){ var num=parseFloat(servisRaw.replace(',', '.')); servis = isNaN(num) ? servisRaw : ('Servis ' + Math.round(num)); }
+      else servis = 'Belirtilmemiş';
+
+      out.push({
+        adSoyad: adSoyad, adres: adres, sehir: sehirCol, servis: servis, servisFlag: servisFlag,
+        sinif: cellStr(row, idx.sinif), tel: cellStr(row, idx.tel), tel2: cellStr(row, idx.tel2),
+        anneAdi: titleTr(cellStr(row, idx.anneAdi)), anneGsm: cellStr(row, idx.anneGsm),
+        babaAdi: titleTr(cellStr(row, idx.babaAdi)), babaGsm: cellStr(row, idx.babaGsm),
+        plaka: cellStr(row, idx.plaka), fiyat: cellStr(row, idx.fiyat), cinsiyet: cellStr(row, idx.cinsiyet), sira: cellStr(row, idx.sira),
+        lat: null, lng: null, geoStatus: 'pending'
+      });
+    }
+
+    var columns = [ {key:'adSoyad', label:'Ad Soyad'}, {key:'adres', label:'Adres'}, {key:'servis', label:'Servis'} ];
+    if(hasSinif) columns.push({key:'sinif', label:'Sınıf'});
+    if(hasTelPair){ columns.push({key:'tel', label:'Telefon'}); columns.push({key:'tel2', label:'Telefon 2'}); }
+    if(hasParentPair){ columns.push({key:'anneAdi', label:'Anne Adı'}); columns.push({key:'anneGsm', label:'Anne Telefon'}); columns.push({key:'babaAdi', label:'Baba Adı'}); columns.push({key:'babaGsm', label:'Baba Telefon'}); }
+    if(hasPlaka) columns.push({key:'plaka', label:'Plaka'});
+    if(hasFiyat) columns.push({key:'fiyat', label:'Ücret'});
+    if(hasCinsiyet) columns.push({key:'cinsiyet', label:'Cinsiyet'});
+    if(hasSira) columns.push({key:'sira', label:'Sıra No'});
+    return { rows: out, columns: columns };
+  }
+
+  function appendCityIfMissing(rows){
+    var city = (school.defaultCity || 'Konya').trim() || 'Konya';
+    var cityNorm = normHeader(city);
+    rows.forEach(function(row){
+      var addrNorm = normHeader(row.adres);
+      if(row.adres && addrNorm.indexOf(cityNorm)===-1) row.adres = row.adres + ', ' + city;
+    });
+  }
+  function sortedCopy(rows){
+    return rows.slice().sort(function(a,b){
+      var sa = a.servisFlag ? 'zzz' : a.servis, sb = b.servisFlag ? 'zzz' : b.servis;
+      if(sa!==sb) return sa.localeCompare(sb, 'tr', {numeric:true});
+      return a.adSoyad.localeCompare(b.adSoyad, 'tr');
+    });
+  }
+
+  async function handleFile(file){
+    if(!school) return;
+    try{
+      var buf = await file.arrayBuffer();
+      var wb = XLSX.read(buf, { type:'array' });
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
+      var parsed = parseWorkbook(rows);
+      if(!parsed.rows.length){ showToast('Öğrenci satırı bulunamadı. Sütun başlıklarını kontrol edin.', 'error'); return; }
+      if(school.rows.length && !confirm('Bu okul için mevcut liste ('+school.rows.length+' öğrenci) yeni dosyayla değiştirilecek. Devam edilsin mi?')) return;
+
+      appendCityIfMissing(parsed.rows);
+      var sorted = sortedCopy(parsed.rows);
+
+      showToast('Kaydediliyor…', 'success');
+      var oldSnap = await rowsRef(school.id).get();
+      var delBatches = chunk(oldSnap.docs, 400);
+      for(var i=0;i<delBatches.length;i++){
+        var db1 = db.batch();
+        delBatches[i].forEach(function(d){ db1.delete(d.ref); });
+        await db1.commit();
+      }
+      var newRowsWithIds = [];
+      var addBatches = chunk(sorted, 400);
+      for(var j=0;j<addBatches.length;j++){
+        var b2 = db.batch();
+        addBatches[j].forEach(function(r){
+          var ref = rowsRef(school.id).doc();
+          b2.set(ref, r);
+          newRowsWithIds.push(Object.assign({ id: ref.id }, r));
+        });
+        await b2.commit();
+      }
+      school.rows = newRowsWithIds;
+      school.columns = parsed.columns;
+      school.groupColors = {};
+      await schoolsRef.doc(school.id).update({ columns: school.columns, groupColors: {} });
+      updateIndexStatsForActive();
+      renderAll();
+      showToast(parsed.rows.length + ' öğrenci işlendi. Adresler haritada kontrol ediliyor…', 'success');
+      enqueueGeocode(school.rows.map(function(r){ return r.id; }));
+    }catch(err){
+      console.error(err);
+      showToast('Dosya işlenemedi: ' + err.message, 'error');
+    }
+  }
+
+  function downloadResult(){
+    try{
+      var cols = school.columns.slice();
+      var headerMap = { adSoyad:'Ad Soyad', adres:'Adres', servis:'Servis', sinif:'Sınıf', tel:'Telefon', tel2:'Telefon 2',
+        anneAdi:'Anne Adı', anneGsm:'Anne Telefon', babaAdi:'Baba Adı', babaGsm:'Baba Telefon', plaka:'Plaka', fiyat:'Ücret',
+        cinsiyet:'Cinsiyet', sira:'Sıra No' };
+      var headers = cols.map(function(c){ return headerMap[c.key] || c.label; }).concat(['Enlem','Boylam']);
+      var aoa = [headers];
+      school.rows.forEach(function(row){
+        var line = cols.map(function(c){ return row[c.key] || ''; });
+        line.push(row.lat!=null ? row.lat : '');
+        line.push(row.lng!=null ? row.lng : '');
+        aoa.push(line);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = headers.map(function(h){ return { wch: h==='Adres' ? 46 : 16 }; });
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Öğrenciler');
+      var fname = (school.name || 'okul').replace(/[^a-zA-Z0-9ğüşöçıİĞÜŞÖÇ\- ]/g,'').trim().replace(/\s+/g,'-');
+      XLSX.writeFile(wb, 'servis-listesi-' + (fname || 'okul') + '.xlsx');
+      showToast('Dosya indirildi.', 'success');
+    }catch(e){ console.error(e); showToast('İndirme başarısız oldu.', 'error'); }
+  }
+
+  var pendingRowUpdates = {};
+  var rowSaveTimers = {};
+  function queueRowUpdate(schoolId, rowId, patch){
+    pendingRowUpdates[rowId] = Object.assign(pendingRowUpdates[rowId] || {}, patch);
+    clearTimeout(rowSaveTimers[rowId]);
+    rowSaveTimers[rowId] = setTimeout(function(){
+      var toSend = pendingRowUpdates[rowId];
+      delete pendingRowUpdates[rowId];
+      rowsRef(schoolId).doc(rowId).update(toSend).catch(function(e){ console.error(e); showToast('Kaydedilemedi.', 'error'); });
+    }, 450);
+  }
+  function writeRowNow(schoolId, rowId, patch){
+    return rowsRef(schoolId).doc(rowId).update(patch).catch(function(e){ console.error(e); showToast('Kaydedilemedi.', 'error'); });
+  }
+
+  var geocodeQueue = [];
+  var geocodeRunning = false;
+  var geocodeCancel = false;
+
+  function enqueueGeocode(ids){
+    ids.forEach(function(id){ if(geocodeQueue.indexOf(id)===-1) geocodeQueue.push(id); });
+    if(!geocodeRunning) runGeocodeQueue();
+  }
+  function geocodeAddress(adres){
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tr&q=' + encodeURIComponent(adres);
+    return fetch(url, { headers: { 'Accept-Language':'tr' } })
+      .then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+      .then(function(arr){ if(arr && arr[0]) return { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) }; return null; });
+  }
+  async function runGeocodeQueue(){
+    var mySchoolId = school ? school.id : null;
+    geocodeRunning = true; geocodeCancel = false;
+    var total = geocodeQueue.length, done = 0;
+    setProgress(true, 0, total);
+    while(geocodeQueue.length && !geocodeCancel){
+      var id = geocodeQueue.shift();
+      if(!school || school.id!==mySchoolId){ break; }
+      var row = school.rows.find(function(r){ return r.id===id; });
+      if(row && !(row.lat && row.lng)){
+        if(!row.adres){ row.geoStatus='fail'; writeRowNow(mySchoolId, id, { geoStatus:'fail' }); }
+        else{
+          try{
+            var c = await geocodeAddress(row.adres);
+            if(c){ row.lat=c.lat; row.lng=c.lng; row.geoStatus='ok'; writeRowNow(mySchoolId, id, { lat:c.lat, lng:c.lng, geoStatus:'ok' }); }
+            else { row.geoStatus='fail'; writeRowNow(mySchoolId, id, { geoStatus:'fail' }); }
+          }catch(e){ row.geoStatus='fail'; writeRowNow(mySchoolId, id, { geoStatus:'fail' }); }
+          done++;
+          if(done % 6 === 0){ updateIndexStatsForActive(); renderTable(); renderMap(); renderSummary(); }
+          setProgress(true, done, total);
+          await sleep(1100);
+          continue;
+        }
+      }
+      done++; setProgress(true, done, total);
+    }
+    setProgress(false);
+    geocodeRunning = false;
+    if(geocodeCancel) geocodeQueue = [];
+    if(school && school.id===mySchoolId){ updateIndexStatsForActive(); renderAll(); }
+  }
+  function setProgress(show, done, total){
+    var bar = document.getElementById('progressBar');
+    if(!show){ bar.classList.remove('show'); return; }
+    bar.classList.add('show');
+    document.getElementById('progressText').textContent = 'Adresler kontrol ediliyor ' + done + '/' + total;
+    document.getElementById('progressFill').style.width = (total ? Math.round((done/total)*100) : 0) + '%';
+  }
+
+  function initMap(){
+    map = L.map('map', { zoomControl:true }).setView([37.8746, 32.4932], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap katkıda bulunanlar' }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+  }
+  function renderMap(){
+    if(!map) return;
+    markersLayer.clearLayers();
+    if(!school){ return; }
+    var bounds = [];
+    school.rows.forEach(function(row){
+      if(!(row.lat && row.lng)) return;
+      var color = groupColor(row.servisFlag ? 'Belirtilmemiş' : row.servis);
+      var icon = L.divIcon({ className:'', html:'<div class="pin" style="background:'+color+'"></div>', iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-8] });
+      var marker = L.marker([row.lat, row.lng], { icon:icon });
+      marker.bindPopup(
+        '<div style="font-size:12.5px;min-width:170px;">' +
+          '<div style="font-weight:700;margin-bottom:3px;">' + escapeHtml(row.adSoyad) + '</div>' +
+          '<div style="color:#5B6472;margin-bottom:6px;">' + escapeHtml(row.adres) + '</div>' +
+          '<div class="popup-actions">' +
+            '<button data-fix="'+row.id+'">Yanlış konum, düzelt</button>' +
+          '</div>' +
+        '</div>'
+      );
+      marker.on('popupopen', function(){
+        var btn = document.querySelector('[data-fix="'+row.id+'"]');
+        if(btn) btn.onclick = function(){ startManualPin(row.id); };
+      });
+      marker.addTo(markersLayer);
+      bounds.push([row.lat, row.lng]);
+    });
+    if(bounds.length){ try{ map.fitBounds(bounds, { padding:[30,30], maxZoom:15 }); }catch(e){} }
+  }
+  function focusRow(id){
+    var row = school.rows.find(function(r){ return r.id===id; });
+    if(!row || !(row.lat && row.lng)) return;
+    document.getElementById('mapPanel').scrollIntoView({ behavior:'smooth', block:'center' });
+    map.setView([row.lat, row.lng], 16);
+    setTimeout(function(){
+      markersLayer.eachLayer(function(m){
+        var ll = m.getLatLng();
+        if(Math.abs(ll.lat-row.lat)<1e-9 && Math.abs(ll.lng-row.lng)<1e-9) m.openPopup();
+      });
+    }, 300);
+  }
+  function startManualPin(id){
+    var row = school.rows.find(function(r){ return r.id===id; });
+    var schoolId = school.id;
+    document.getElementById('mapPanel').scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('pinBanner').classList.add('show');
+    document.getElementById('pinBannerText').textContent = (row? row.adSoyad + ' için ' : '') + 'doğru konumu haritada işaretlemek üzere haritaya tıklayın';
+    if(manualPinHandler) map.off('click', manualPinHandler);
+    manualPinHandler = function(e){
+      var r = school.rows.find(function(x){ return x.id===id; });
+      if(r){
+        r.lat = e.latlng.lat; r.lng = e.latlng.lng; r.geoStatus='ok';
+        writeRowNow(schoolId, id, { lat:r.lat, lng:r.lng, geoStatus:'ok' });
+        updateIndexStatsForActive(); renderAll();
+        showToast('Konum güncellendi.', 'success');
+      }
+      cancelManualPin();
+    };
+    map.on('click', manualPinHandler);
+  }
+  function cancelManualPin(){
+    document.getElementById('pinBanner').classList.remove('show');
+    if(manualPinHandler){ map.off('click', manualPinHandler); manualPinHandler=null; }
+  }
+
+  function renderSidebar(){
+    var wrap = document.getElementById('schoolList');
+    if(!appIndex.schools.length){ wrap.innerHTML = '<div class="side-empty">Henüz okul eklenmedi.</div>'; return; }
+    var sorted = appIndex.schools.slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||'', 'tr'); });
+    wrap.innerHTML = '';
+    sorted.forEach(function(s){
+      var item = document.createElement('div');
+      item.className = 'school-item' + (s.id===appIndex.activeId ? ' active' : '');
+      var initials = (s.name||'?').trim().slice(0,2).toUpperCase();
+      item.innerHTML =
+        '<div class="school-mark">' + escapeHtml(initials) + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="school-name">' + escapeHtml(s.name) + '</div>' +
+          '<div class="school-meta">' + (s.studentCount||0) + ' öğrenci' + (s.missingCount ? (' · <span class="bad">'+s.missingCount+' sorunlu</span>') : '') + '</div>' +
+        '</div>' +
+        '<div class="school-tools">' +
+          '<button class="mini-icon" data-rename="'+s.id+'" title="Yeniden adlandır">✎</button>' +
+          '<button class="mini-icon" data-delete="'+s.id+'" title="Sil">🗑</button>' +
+        '</div>';
+      item.addEventListener('click', function(ev){
+        if(ev.target.closest('[data-rename]') || ev.target.closest('[data-delete]')) return;
+        switchSchool(s.id);
+      });
+      item.querySelector('[data-rename]').addEventListener('click', function(ev){
+        ev.stopPropagation();
+        if(s.id!==appIndex.activeId){ switchSchool(s.id).then(function(){ openSchoolModal('rename'); }); }
+        else openSchoolModal('rename');
+      });
+      item.querySelector('[data-delete]').addEventListener('click', function(ev){ ev.stopPropagation(); deleteSchool(s.id); });
+      wrap.appendChild(item);
+    });
+  }
+
+  function renderHeader(){
+    document.getElementById('schoolTitle').textContent = school ? school.name : 'Okul seçilmedi';
+    document.getElementById('defaultCity').value = school ? (school.defaultCity||'Konya') : '';
+    document.getElementById('defaultCity').disabled = !school;
+    document.getElementById('btnImport').disabled = !school;
+  }
+
+  function statusBadge(row){
+    if(row.geoStatus==='ok') return '<span class="badge ok">🟢 Bulundu</span>';
+    if(row.geoStatus==='fail') return '<span class="badge fail">🔴 Bulunamadı</span>';
+    return '<span class="badge pending">⏳ Kontrol edilmedi</span>';
+  }
+  function statusCellHtml(row){
+    var actions = '<div class="row-actions">';
+    if(row.geoStatus==='ok') actions += '<button class="tiny-btn" data-focus="'+row.id+'">Haritada gör</button>';
+    else actions += '<button class="tiny-btn" data-check="'+row.id+'">Kontrol et</button><button class="tiny-btn" data-fix="'+row.id+'">Elle işaretle</button>';
+    actions += '</div>';
+    return statusBadge(row) + actions;
+  }
+  function bindStatusCellButtons(scope){
+    scope.querySelectorAll('[data-focus]').forEach(function(b){ b.onclick = function(){ focusRow(b.getAttribute('data-focus')); }; });
+    scope.querySelectorAll('[data-fix]').forEach(function(b){ b.onclick = function(){ startManualPin(b.getAttribute('data-fix')); }; });
+    scope.querySelectorAll('[data-check]').forEach(function(b){ b.onclick = function(){ enqueueGeocode([b.getAttribute('data-check')]); }; });
+  }
+
+  function renderTable(){
+    if(!school) return;
+    var thead = document.getElementById('tableHead');
+    var tbody = document.getElementById('tableBody');
+    var cols = school.columns;
+    thead.innerHTML = '<tr>' + cols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('') + '<th>Konum</th></tr>';
+    tbody.innerHTML = '';
+    school.rows.forEach(function(row){
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-row-id', row.id);
+      if(row.servisFlag || row.geoStatus==='fail') tr.className = 'flag-row';
+      var cells = cols.map(function(c){
+        var val = row[c.key] || '';
+        var cls = c.key==='servis' ? 'col-servis' : '';
+        return '<td class="'+cls+'"><input data-id="'+row.id+'" data-k="'+c.key+'" value="'+val.replace(/"/g,'&quot;')+'"></td>';
+      }).join('');
+      tr.innerHTML = cells + '<td class="status-cell">' + statusCellHtml(row) + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    bindStatusCellButtons(tbody);
+
+    tbody.querySelectorAll('input').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var id = inp.getAttribute('data-id'), k = inp.getAttribute('data-k');
+        var row = school.rows.find(function(r){ return r.id===id; });
+        if(!row) return;
+        row[k] = inp.value;
+        var patch = {}; patch[k] = inp.value;
+        if(k==='servis'){ row.servisFlag = !inp.value.trim(); patch.servisFlag = row.servisFlag; }
+        if(k==='adres'){ row.lat=null; row.lng=null; row.geoStatus='pending'; patch.lat=null; patch.lng=null; patch.geoStatus='pending'; }
+        queueRowUpdate(school.id, id, patch);
+        updateIndexStatsForActive();
+        var tr = inp.closest('tr');
+        tr.className = (row.servisFlag || row.geoStatus==='fail') ? 'flag-row' : '';
+        if(k==='adres' || k==='servis'){
+          var statusCell = tr.querySelector('.status-cell');
+          if(statusCell){ statusCell.innerHTML = statusCellHtml(row); bindStatusCellButtons(tr); }
+          renderSummary();
+        }
+      });
+    });
+  }
+
+  function renderSummary(){
+    if(!school) return;
+    var total = school.rows.length;
+    var missingServis = school.rows.filter(function(r){ return r.servisFlag; }).length;
+    var notFound = school.rows.filter(function(r){ return r.geoStatus!=='ok'; }).length;
+    var wrap = document.getElementById('summaryChips');
+    wrap.innerHTML =
+      '<span class="chip">' + total + ' öğrenci</span>' +
+      (missingServis ? ('<span class="chip warn">⚠ ' + missingServis + ' satırda servis eksik</span>') : '<span class="chip ok">Servis bilgisi tam</span>') +
+      (notFound ? ('<span class="chip warn">📍 ' + notFound + ' adres haritada doğrulanmadı</span>') : '<span class="chip ok">Tüm adresler haritada doğrulandı</span>');
+  }
+
+  function renderAll(){
+    var hasSchool = !!school;
+    document.getElementById('noSchoolState').style.display = hasSchool ? 'none' : 'block';
+    document.getElementById('dropSection').style.display = hasSchool && school.rows.length===0 ? 'block' : 'none';
+    document.getElementById('resultSection').style.display = hasSchool && school.rows.length>0 ? 'block' : 'none';
+    document.getElementById('btnDownload').disabled = !(hasSchool && school.rows.length>0);
+    if(hasSchool && school.rows.length>0){ renderSummary(); renderTable(); renderMap(); }
+    else if(map){ markersLayer.clearLayers(); }
+  }
+
+  function wireEvents(){
+    document.getElementById('btnLogin').addEventListener('click', doLogin);
+    document.getElementById('loginPass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+    document.getElementById('loginEmail').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+    document.getElementById('btnLogout').addEventListener('click', doLogout);
+
+    document.getElementById('btnNewSchool').addEventListener('click', function(){ openSchoolModal('new'); });
+    document.getElementById('schoolModalCancel').addEventListener('click', closeSchoolModal);
+    document.getElementById('schoolModalSave').addEventListener('click', saveSchoolModal);
+    document.getElementById('schoolNameInput').addEventListener('keydown', function(e){ if(e.key==='Enter') saveSchoolModal(); });
+    document.getElementById('schoolModalOverlay').addEventListener('click', function(e){ if(e.target.id==='schoolModalOverlay') closeSchoolModal(); });
+
+    document.getElementById('btnImport').addEventListener('click', function(){ if(school) document.getElementById('fileInput').click(); });
+    document.getElementById('dropSection').addEventListener('click', function(){ if(school) document.getElementById('fileInput').click(); });
+    document.getElementById('fileInput').addEventListener('change', function(e){ var f=e.target.files[0]; if(f) handleFile(f); e.target.value=''; });
+
+    var dz = document.getElementById('dropzone');
+    ['dragenter','dragover'].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); dz.classList.add('drag'); }); });
+    ['dragleave','drop'].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); dz.classList.remove('drag'); }); });
+    dz.addEventListener('drop', function(e){ var f=e.dataTransfer.files[0]; if(f && school) handleFile(f); });
+
+    document.getElementById('defaultCity').addEventListener('change', function(e){
+      if(!school) return;
+      school.defaultCity = e.target.value.trim() || 'Konya';
+      schoolsRef.doc(school.id).update({ defaultCity: school.defaultCity }).catch(function(){});
+    });
+
+    document.getElementById('btnDownload').addEventListener('click', downloadResult);
+    document.getElementById('btnCheckAll').addEventListener('click', function(){
+      if(!school) return;
+      var ids = school.rows.filter(function(r){ return !(r.lat && r.lng); }).map(function(r){ return r.id; });
+      if(!ids.length){ showToast('Kontrol edilecek adres yok, hepsi bulunmuş.', 'success'); return; }
+      enqueueGeocode(ids);
+    });
+    document.getElementById('btnRecheckFailed').addEventListener('click', function(){
+      if(!school) return;
+      var ids = school.rows.filter(function(r){ return r.geoStatus==='fail'; }).map(function(r){ return r.id; });
+      if(!ids.length){ showToast('Bulunamayan adres yok.', 'success'); return; }
+      ids.forEach(function(id){ var r = school.rows.find(function(x){return x.id===id;}); if(r) r.geoStatus='pending'; });
+      enqueueGeocode(ids);
+    });
+
+    document.getElementById('pinBannerCancel').addEventListener('click', cancelManualPin);
+    document.getElementById('progressCancel').addEventListener('click', function(){ geocodeCancel = true; });
+    document.getElementById('btnHamburger').addEventListener('click', function(){ document.getElementById('sidebar').classList.toggle('open'); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeSchoolModal(); cancelManualPin(); } });
+  }
+
+  initMap();
+  wireEvents();
+})();
+</script>
+</body>
+</html>
