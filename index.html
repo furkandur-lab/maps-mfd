@@ -211,8 +211,10 @@
       <div id="resultSection" style="display:none">
         <div class="summary" id="summaryChips"></div>
         <div class="action-bar">
-          <button class="btn btn-line" id="btnCheckAll">📍 Tüm Adresleri Haritada Kontrol Et</button>
+          <button class="btn btn-accent" id="btnImportCorrections">📍 Google Haritalar Düzeltmelerini Yükle (KML)</button>
+          <button class="btn btn-line" id="btnCheckAll">Uygulama İçinde Kontrol Et (opsiyonel)</button>
           <button class="btn btn-line" id="btnRecheckFailed">↻ Bulunamayanları Tekrar Dene</button>
+          <input type="file" id="correctionsFileInput" accept=".kml,.kmz" style="display:none">
         </div>
         <div class="table-wrap">
           <table>
@@ -227,11 +229,12 @@
         </div>
 
         <div class="tips">
-          <h3>Google Haritalarım'a yükleme</h3>
+          <h3>Google Haritalarım ile çalışma akışı</h3>
           <ol>
-            <li>İndirilen dosyayı <b>Google Haritalarım</b>'da o okula ait yeni bir katmana içe aktarın.</li>
-            <li>Başlık için <b>Ad Soyad</b>, konum için <b>Adres</b> (varsa <b>Enlem</b>/<b>Boylam</b> sütunlarını da eşleştirin — bu ikisi doluysa Maps adresi aramak yerine doğrudan o noktayı kullanır).</li>
-            <li>İçe aktardıktan sonra <b>Stil &gt; Yer gruplandırma ölçütü: Servis</b> ile her servisi otomatik farklı renkte gösterin.</li>
+            <li><b>İndir (Excel)</b> ile listeyi indirin, <b>Google Haritalarım</b>'da o okula ait yeni bir katmana içe aktarın (başlık: <b>Ad Soyad</b>, konum: <b>Adres</b>).</li>
+            <li>Google Haritalar'da yanlış çıkan pinleri sürükleyip doğru yere taşıyın.</li>
+            <li>Katmanın <b>⋮ menüsü &gt; "KML'ye aktar"</b> ile düzelttiğiniz katmanı bilgisayarınıza indirin.</li>
+            <li>O dosyayı yukarıdaki <b>"Google Haritalar Düzeltmelerini Yükle"</b> butonuyla buraya yükleyin — isim eşleşmesiyle ilgili öğrencilerin konumu burada da otomatik güncellenir.</li>
           </ol>
         </div>
       </div>
@@ -269,6 +272,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -444,8 +448,6 @@
       school = { id:id, name:data.name, defaultCity:data.defaultCity||'Konya', columns:data.columns||[], groupColors:data.groupColors||{}, rows: rows };
       renderHeader();
       renderAll();
-      var pending = school.rows.filter(function(r){ return !(r.lat && r.lng) && r.geoStatus!=='fail'; }).map(function(r){ return r.id; });
-      if(pending.length) enqueueGeocode(pending);
     }catch(e){ console.error(e); showToast('Okul yüklenemedi: ' + e.message, 'error'); }
   }
 
@@ -601,8 +603,7 @@
       await schoolsRef.doc(school.id).update({ columns: school.columns, groupColors: {} });
       updateIndexStatsForActive();
       renderAll();
-      showToast(parsed.rows.length + ' öğrenci işlendi. Adresler haritada kontrol ediliyor…', 'success');
-      enqueueGeocode(school.rows.map(function(r){ return r.id; }));
+      showToast(parsed.rows.length + ' öğrenci işlendi. "İndir (Excel)" ile Google Haritalarım\'a yüklemeye hazır.', 'success');
     }catch(err){
       console.error(err);
       showToast('Dosya işlenemedi: ' + err.message, 'error');
@@ -631,6 +632,78 @@
       XLSX.writeFile(wb, 'servis-listesi-' + (fname || 'okul') + '.xlsx');
       showToast('Dosya indirildi.', 'success');
     }catch(e){ console.error(e); showToast('İndirme başarısız oldu.', 'error'); }
+  }
+
+  function parseKmlText(kmlText){
+    var xml = new DOMParser().parseFromString(kmlText, 'text/xml');
+    var perr = xml.getElementsByTagName('parsererror');
+    if(perr && perr.length) throw new Error('KML dosyası okunamadı (bozuk format).');
+    var placemarks = xml.getElementsByTagName('Placemark');
+    var out = [];
+    for(var i=0;i<placemarks.length;i++){
+      var pm = placemarks[i];
+      var nameEl = pm.getElementsByTagName('name')[0];
+      var name = nameEl ? nameEl.textContent.trim() : '';
+      var coordEls = pm.getElementsByTagName('coordinates');
+      if(!name || !coordEls.length) continue;
+      var raw = (coordEls[0].textContent || '').trim().split(/\s+/)[0];
+      var parts = raw.split(',');
+      if(parts.length<2) continue;
+      var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+      if(isNaN(lat) || isNaN(lng)) continue;
+      out.push({ name: name, lat: lat, lng: lng });
+    }
+    return out;
+  }
+  async function extractKmlFromKmz(file){
+    var buf = await file.arrayBuffer();
+    var zip = await JSZip.loadAsync(buf);
+    var kmlEntry = null;
+    zip.forEach(function(relPath, entry){ if(!kmlEntry && /\.kml$/i.test(relPath)) kmlEntry = entry; });
+    if(!kmlEntry) throw new Error('KMZ içinde bir .kml dosyası bulunamadı.');
+    return await kmlEntry.async('text');
+  }
+
+  async function handleMapsCorrectionFile(file){
+    if(!school) return;
+    try{
+      var text;
+      if(/\.kmz$/i.test(file.name)) text = await extractKmlFromKmz(file);
+      else text = await file.text();
+
+      var placemarks = parseKmlText(text);
+      if(!placemarks.length){ showToast('Dosyada konum bilgisi bulunamadı.', 'error'); return; }
+
+      var byName = {};
+      school.rows.forEach(function(r){
+        var key = normHeader(r.adSoyad);
+        (byName[key] = byName[key] || []).push(r.id);
+      });
+
+      var updated = 0, notFound = 0, ambiguous = 0;
+      placemarks.forEach(function(pmk){
+        var key = normHeader(pmk.name);
+        var ids = byName[key];
+        if(!ids || !ids.length){ notFound++; return; }
+        if(ids.length>1){ ambiguous++; return; }
+        var row = school.rows.find(function(r){ return r.id===ids[0]; });
+        if(row){
+          row.lat = pmk.lat; row.lng = pmk.lng; row.geoStatus = 'ok';
+          writeRowNow(school.id, row.id, { lat: pmk.lat, lng: pmk.lng, geoStatus: 'ok' });
+          updated++;
+        }
+      });
+
+      updateIndexStatsForActive();
+      renderAll();
+      var msg = updated + ' öğrencinin konumu güncellendi.';
+      if(notFound) msg += ' ' + notFound + ' isim eşleşmedi.';
+      if(ambiguous) msg += ' ' + ambiguous + ' isim birden fazla öğrenciyle eşleştiği için atlandı.';
+      showToast(msg, updated ? 'success' : 'error');
+    }catch(err){
+      console.error(err);
+      showToast('Dosya okunamadı: ' + err.message, 'error');
+    }
   }
 
   var pendingRowUpdates = {};
@@ -922,6 +995,8 @@
     });
 
     document.getElementById('btnDownload').addEventListener('click', downloadResult);
+    document.getElementById('btnImportCorrections').addEventListener('click', function(){ if(school) document.getElementById('correctionsFileInput').click(); });
+    document.getElementById('correctionsFileInput').addEventListener('change', function(e){ var f=e.target.files[0]; if(f) handleMapsCorrectionFile(f); e.target.value=''; });
     document.getElementById('btnCheckAll').addEventListener('click', function(){
       if(!school) return;
       var ids = school.rows.filter(function(r){ return !(r.lat && r.lng); }).map(function(r){ return r.id; });
