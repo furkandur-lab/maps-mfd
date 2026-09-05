@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Çoklu Okul Servis Yönetimi</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{
     --panel:#111826; --panel-2:#1A2438; --panel-line:#2B3446; --panel-ink:#E8EAF0; --panel-ink-soft:#9AA3B2;
@@ -102,27 +101,6 @@
   .badge.ok{ background:#E9F5EE; color:#256B44; }
   .badge.fail{ background:#FBE7E5; color:#A4372E; }
   .badge.pending{ background:#EFEBE0; color:#7A6E58; }
-  .row-actions{ display:flex; gap:4px; margin-top:4px; }
-  .tiny-btn{ background:none; border:1px solid var(--paper-line); color:var(--ink); font-size:10.5px; padding:3px 7px; border-radius:6px; }
-  .tiny-btn:hover{ background:#F1EEE5; }
-
-  #mapPanel{ margin-top:20px; border:1px solid var(--paper-line); border-radius:var(--radius); overflow:hidden; }
-  #mapPanel .map-head{ padding:10px 14px; background:#fff; border-bottom:1px solid var(--paper-line); font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:10px; }
-  #map{ height:360px; background:#E7E4DA; }
-  .pin{ width:14px;height:14px;border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.45); }
-  .popup-actions{ display:flex; gap:6px; margin-top:8px; }
-  .popup-actions button{ flex:1; font-size:11px; font-weight:600; padding:6px 4px; border-radius:6px; border:1px solid var(--paper-line); background:#fff; }
-
-  .progress-bar{ position:fixed; left:290px; right:18px; bottom:18px; background:var(--panel); color:#fff; border-radius:var(--radius); padding:12px 16px; display:none; align-items:center; gap:12px; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.25); }
-  .progress-bar.show{ display:flex; }
-  .progress-track{ flex:1; height:6px; border-radius:4px; background:#2B3446; overflow:hidden; }
-  .progress-fill{ height:100%; background:var(--accent); width:0%; }
-  .progress-text{ font-size:12px; font-weight:600; white-space:nowrap; }
-  .progress-cancel{ background:none;border:1px solid #3A4560; color:#fff; border-radius:6px; padding:5px 10px; font-size:11.5px; }
-
-  .banner{ position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--panel); color:#fff; padding:9px 16px; border-radius:999px; font-size:12.5px; display:none; align-items:center; gap:10px; z-index:70; box-shadow:0 6px 18px rgba(0,0,0,.25); }
-  .banner.show{ display:flex; }
-  .banner button{ background:var(--accent); color:var(--accent-ink); border:none; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; }
 
   .overlay{ position:fixed; inset:0; background:rgba(15,20,28,.55); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
   .overlay.show{ display:flex; }
@@ -146,7 +124,6 @@
     .sidebar{ position:fixed; left:0; top:0; bottom:0; transform:translateX(-100%); transition:transform .2s ease; z-index:50; }
     .sidebar.open{ transform:translateX(0); }
     .hamburger{ display:flex; align-items:center; justify-content:center; }
-    .progress-bar{ left:18px; }
   }
 </style>
 </head>
@@ -171,7 +148,7 @@
       <div class="brand-mark">S</div>
       <div>
         <div class="brand-title">Servis Yönetimi</div>
-        <div class="brand-sub">Okul bazlı liste ve harita kontrolü</div>
+        <div class="brand-sub">Okul bazlı Excel &amp; Google Haritalar senkronu</div>
       </div>
     </div>
     <div class="school-add">
@@ -213,8 +190,6 @@
         <div class="action-bar">
           <button class="btn btn-accent" id="btnGoToMaps">🗺️ Google Haritalar'a Yükle</button>
           <button class="btn btn-accent" id="btnImportCorrections">📍 Düzeltmeleri Yükle (KML)</button>
-          <button class="btn btn-line" id="btnCheckAll">Uygulama İçinde Kontrol Et (opsiyonel)</button>
-          <button class="btn btn-line" id="btnRecheckFailed">↻ Bulunamayanları Tekrar Dene</button>
           <input type="file" id="correctionsFileInput" accept=".kml,.kmz" style="display:none">
         </div>
         <div class="table-wrap">
@@ -224,32 +199,16 @@
           </table>
         </div>
 
-        <div id="mapPanel">
-          <div class="map-head">🗺 Harita önizleme — bulunan adresler burada görünür, yanlış konumu düzeltmek için işaretçiye tıklayın</div>
-          <div id="map"></div>
-        </div>
-
         <div class="tips">
           <h3>Google Haritalarım ile çalışma akışı</h3>
           <ol>
             <li><b>🗺️ Google Haritalar'a Yükle</b> butonuna basın — dosya iner ve Google Haritalar yeni sekmede açılır. Orada bu okul için "Yeni bir harita oluştur" (veya varsa mevcut haritasını açın) deyip indirilen dosyayı bir katmana içe aktarın (başlık: <b>Ad Soyad</b>, konum: <b>Adres</b>).</li>
             <li>Google Haritalar'da yanlış çıkan pinleri sürükleyip doğru yere taşıyın.</li>
-            <li>Katmanın <b>⋮ menüsü &gt; "KML'ye aktar"</b> ile düzelttiğiniz katmanı bilgisayarınıza indirin.</li>
-            <li>O dosyayı <b>"📍 Düzeltmeleri Yükle (KML)"</b> butonuyla buraya yükleyin — isim eşleşmesiyle ilgili öğrencilerin konumu burada da otomatik güncellenir.</li>
+            <li>Katmanın <b>⋮ menüsü &gt; "KML/KMZ'ye aktar"</b> ile düzelttiğiniz katmanı bilgisayarınıza indirin (varsayılan KMZ formatında bırakın).</li>
+            <li>O dosyayı <b>"📍 Düzeltmeleri Yükle (KML)"</b> butonuyla buraya yükleyin — eşleşen öğrencilerin konumu burada da otomatik güncellenir.</li>
           </ol>
         </div>
       </div>
-    </div>
-
-    <div class="banner" id="pinBanner">
-      <span id="pinBannerText">Konumu haritada işaretlemek için haritaya tıklayın</span>
-      <button id="pinBannerCancel">Vazgeç</button>
-    </div>
-
-    <div class="progress-bar" id="progressBar">
-      <div class="progress-text" id="progressText">0/0</div>
-      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      <button class="progress-cancel" id="progressCancel">Durdur</button>
     </div>
   </main>
 </div>
@@ -271,7 +230,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
@@ -294,18 +252,14 @@
   var schoolsRef = db.collection('schools');
   function rowsRef(schoolId){ return schoolsRef.doc(schoolId).collection('rows'); }
 
-  var PALETTE = ['#E8A33D','#3A7CA5','#7CB342','#B85C9E','#D6524A','#4CB4A6','#8D6E63','#5C6BC0','#EF7B45','#527A5A','#C2A33E','#7690A6'];
-
   var appIndex = { activeId: null, schools: [] };
   var school = null;
-  var map, markersLayer, manualPinHandler = null;
   var schoolModalMode = 'new';
   var unsubscribeSchools = null;
   var firstSnapshotHandled = false;
   var switchToken = 0;
 
   function escapeHtml(str){ return String(str==null?'':str).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-  function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
   function showToast(msg, kind){
     var el = document.createElement('div');
     el.className = 'toast' + (kind==='error'?' err':kind==='success'?' ok':'');
@@ -399,7 +353,7 @@
     if(!name){ showToast('Okul adı gerekli.', 'error'); return; }
     try{
       if(schoolModalMode==='new'){
-        var ref = await schoolsRef.add({ name: name, defaultCity: 'Konya', columns: [], groupColors: {}, studentCount: 0, missingCount: 0 });
+        var ref = await schoolsRef.add({ name: name, defaultCity: 'Konya', columns: [], studentCount: 0, missingCount: 0 });
         closeSchoolModal();
         switchSchool(ref.id);
       }else{
@@ -446,20 +400,10 @@
       var rowsSnap = await rowsRef(id).get();
       var rows = rowsSnap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
       if(myToken!==switchToken) return;
-      school = { id:id, name:data.name, defaultCity:data.defaultCity||'Konya', columns:data.columns||[], groupColors:data.groupColors||{}, rows: rows };
+      school = { id:id, name:data.name, defaultCity:data.defaultCity||'Konya', columns:data.columns||[], rows: rows };
       renderHeader();
       renderAll();
     }catch(e){ console.error(e); showToast('Okul yüklenemedi: ' + e.message, 'error'); }
-  }
-
-  function groupColor(label){
-    if(!school.groupColors) school.groupColors = {};
-    if(school.groupColors[label]) return school.groupColors[label];
-    var used = Object.keys(school.groupColors).length;
-    var c = PALETTE[used % PALETTE.length];
-    school.groupColors[label] = c;
-    schoolsRef.doc(school.id).update({ groupColors: school.groupColors }).catch(function(){});
-    return c;
   }
 
   async function updateIndexStatsForActive(){
@@ -470,6 +414,7 @@
     catch(e){ console.error(e); }
   }
 
+  // ---------- excel parsing ----------
   var ALIAS = {
     adSoyad: ['ADISOYADI','ADSOYAD','ISIM'],
     adi: ['ADI'], soyadi: ['SOYADI'],
@@ -600,11 +545,10 @@
       }
       school.rows = newRowsWithIds;
       school.columns = parsed.columns;
-      school.groupColors = {};
-      await schoolsRef.doc(school.id).update({ columns: school.columns, groupColors: {} });
+      await schoolsRef.doc(school.id).update({ columns: school.columns });
       updateIndexStatsForActive();
       renderAll();
-      showToast(parsed.rows.length + ' öğrenci işlendi. "İndir (Excel)" ile Google Haritalarım\'a yüklemeye hazır.', 'success');
+      showToast(parsed.rows.length + ' öğrenci işlendi. "🗺️ Google Haritalar\'a Yükle" ile devam edebilirsiniz.', 'success');
     }catch(err){
       console.error(err);
       showToast('Dosya işlenemedi: ' + err.message, 'error');
@@ -635,6 +579,7 @@
     }catch(e){ console.error(e); showToast('İndirme başarısız oldu.', 'error'); }
   }
 
+  // ---------- KML/KMZ corrections import ----------
   function parseKmlPlacemarks(kmlText){
     var xml = new DOMParser().parseFromString(kmlText, 'text/xml');
     var perr = xml.getElementsByTagName('parsererror');
@@ -713,7 +658,7 @@
         var row = school.rows.find(function(r){ return r.id===ids[0]; });
         if(row){
           row.lat = pmk.lat; row.lng = pmk.lng; row.geoStatus = 'ok';
-          writeRowNow(school.id, row.id, { lat: pmk.lat, lng: pmk.lng, geoStatus: 'ok' });
+          rowsRef(school.id).doc(row.id).update({ lat: pmk.lat, lng: pmk.lng, geoStatus: 'ok' }).catch(function(e){ console.error(e); });
           updated++;
         }
       });
@@ -730,6 +675,7 @@
     }
   }
 
+  // ---------- row field edits ----------
   var pendingRowUpdates = {};
   var rowSaveTimers = {};
   function queueRowUpdate(schoolId, rowId, patch){
@@ -741,132 +687,8 @@
       rowsRef(schoolId).doc(rowId).update(toSend).catch(function(e){ console.error(e); showToast('Kaydedilemedi.', 'error'); });
     }, 450);
   }
-  function writeRowNow(schoolId, rowId, patch){
-    return rowsRef(schoolId).doc(rowId).update(patch).catch(function(e){ console.error(e); showToast('Kaydedilemedi.', 'error'); });
-  }
 
-  var geocodeQueue = [];
-  var geocodeRunning = false;
-  var geocodeCancel = false;
-
-  function enqueueGeocode(ids){
-    ids.forEach(function(id){ if(geocodeQueue.indexOf(id)===-1) geocodeQueue.push(id); });
-    if(!geocodeRunning) runGeocodeQueue();
-  }
-  function geocodeAddress(adres){
-    var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tr&q=' + encodeURIComponent(adres);
-    return fetch(url, { headers: { 'Accept-Language':'tr' } })
-      .then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
-      .then(function(arr){ if(arr && arr[0]) return { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) }; return null; });
-  }
-  async function runGeocodeQueue(){
-    var mySchoolId = school ? school.id : null;
-    geocodeRunning = true; geocodeCancel = false;
-    var total = geocodeQueue.length, done = 0;
-    setProgress(true, 0, total);
-    while(geocodeQueue.length && !geocodeCancel){
-      var id = geocodeQueue.shift();
-      if(!school || school.id!==mySchoolId){ break; }
-      var row = school.rows.find(function(r){ return r.id===id; });
-      if(row && !(row.lat && row.lng)){
-        if(!row.adres){ row.geoStatus='fail'; writeRowNow(mySchoolId, id, { geoStatus:'fail' }); }
-        else{
-          try{
-            var c = await geocodeAddress(row.adres);
-            if(c){ row.lat=c.lat; row.lng=c.lng; row.geoStatus='ok'; writeRowNow(mySchoolId, id, { lat:c.lat, lng:c.lng, geoStatus:'ok' }); }
-            else { row.geoStatus='fail'; writeRowNow(mySchoolId, id, { geoStatus:'fail' }); }
-          }catch(e){ row.geoStatus='fail'; writeRowNow(mySchoolId, id, { geoStatus:'fail' }); }
-          done++;
-          if(done % 6 === 0){ updateIndexStatsForActive(); renderTable(); renderMap(); renderSummary(); }
-          setProgress(true, done, total);
-          await sleep(1100);
-          continue;
-        }
-      }
-      done++; setProgress(true, done, total);
-    }
-    setProgress(false);
-    geocodeRunning = false;
-    if(geocodeCancel) geocodeQueue = [];
-    if(school && school.id===mySchoolId){ updateIndexStatsForActive(); renderAll(); }
-  }
-  function setProgress(show, done, total){
-    var bar = document.getElementById('progressBar');
-    if(!show){ bar.classList.remove('show'); return; }
-    bar.classList.add('show');
-    document.getElementById('progressText').textContent = 'Adresler kontrol ediliyor ' + done + '/' + total;
-    document.getElementById('progressFill').style.width = (total ? Math.round((done/total)*100) : 0) + '%';
-  }
-
-  function initMap(){
-    map = L.map('map', { zoomControl:true }).setView([37.8746, 32.4932], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap katkıda bulunanlar' }).addTo(map);
-    markersLayer = L.layerGroup().addTo(map);
-  }
-  function renderMap(){
-    if(!map) return;
-    markersLayer.clearLayers();
-    if(!school){ return; }
-    var bounds = [];
-    school.rows.forEach(function(row){
-      if(!(row.lat && row.lng)) return;
-      var color = groupColor(row.servisFlag ? 'Belirtilmemiş' : row.servis);
-      var icon = L.divIcon({ className:'', html:'<div class="pin" style="background:'+color+'"></div>', iconSize:[14,14], iconAnchor:[7,7], popupAnchor:[0,-8] });
-      var marker = L.marker([row.lat, row.lng], { icon:icon });
-      marker.bindPopup(
-        '<div style="font-size:12.5px;min-width:170px;">' +
-          '<div style="font-weight:700;margin-bottom:3px;">' + escapeHtml(row.adSoyad) + '</div>' +
-          '<div style="color:#5B6472;margin-bottom:6px;">' + escapeHtml(row.adres) + '</div>' +
-          '<div class="popup-actions">' +
-            '<button data-fix="'+row.id+'">Yanlış konum, düzelt</button>' +
-          '</div>' +
-        '</div>'
-      );
-      marker.on('popupopen', function(){
-        var btn = document.querySelector('[data-fix="'+row.id+'"]');
-        if(btn) btn.onclick = function(){ startManualPin(row.id); };
-      });
-      marker.addTo(markersLayer);
-      bounds.push([row.lat, row.lng]);
-    });
-    if(bounds.length){ try{ map.fitBounds(bounds, { padding:[30,30], maxZoom:15 }); }catch(e){} }
-  }
-  function focusRow(id){
-    var row = school.rows.find(function(r){ return r.id===id; });
-    if(!row || !(row.lat && row.lng)) return;
-    document.getElementById('mapPanel').scrollIntoView({ behavior:'smooth', block:'center' });
-    map.setView([row.lat, row.lng], 16);
-    setTimeout(function(){
-      markersLayer.eachLayer(function(m){
-        var ll = m.getLatLng();
-        if(Math.abs(ll.lat-row.lat)<1e-9 && Math.abs(ll.lng-row.lng)<1e-9) m.openPopup();
-      });
-    }, 300);
-  }
-  function startManualPin(id){
-    var row = school.rows.find(function(r){ return r.id===id; });
-    var schoolId = school.id;
-    document.getElementById('mapPanel').scrollIntoView({ behavior:'smooth', block:'center' });
-    document.getElementById('pinBanner').classList.add('show');
-    document.getElementById('pinBannerText').textContent = (row? row.adSoyad + ' için ' : '') + 'doğru konumu haritada işaretlemek üzere haritaya tıklayın';
-    if(manualPinHandler) map.off('click', manualPinHandler);
-    manualPinHandler = function(e){
-      var r = school.rows.find(function(x){ return x.id===id; });
-      if(r){
-        r.lat = e.latlng.lat; r.lng = e.latlng.lng; r.geoStatus='ok';
-        writeRowNow(schoolId, id, { lat:r.lat, lng:r.lng, geoStatus:'ok' });
-        updateIndexStatsForActive(); renderAll();
-        showToast('Konum güncellendi.', 'success');
-      }
-      cancelManualPin();
-    };
-    map.on('click', manualPinHandler);
-  }
-  function cancelManualPin(){
-    document.getElementById('pinBanner').classList.remove('show');
-    if(manualPinHandler){ map.off('click', manualPinHandler); manualPinHandler=null; }
-  }
-
+  // ---------- rendering ----------
   function renderSidebar(){
     var wrap = document.getElementById('schoolList');
     if(!appIndex.schools.length){ wrap.innerHTML = '<div class="side-empty">Henüz okul eklenmedi.</div>'; return; }
@@ -908,21 +730,9 @@
   }
 
   function statusBadge(row){
-    if(row.geoStatus==='ok') return '<span class="badge ok">🟢 Bulundu</span>';
+    if(row.geoStatus==='ok') return '<span class="badge ok">🟢 Google Haritalar\'da onaylandı</span>';
     if(row.geoStatus==='fail') return '<span class="badge fail">🔴 Bulunamadı</span>';
-    return '<span class="badge pending">⏳ Kontrol edilmedi</span>';
-  }
-  function statusCellHtml(row){
-    var actions = '<div class="row-actions">';
-    if(row.geoStatus==='ok') actions += '<button class="tiny-btn" data-focus="'+row.id+'">Haritada gör</button>';
-    else actions += '<button class="tiny-btn" data-check="'+row.id+'">Kontrol et</button><button class="tiny-btn" data-fix="'+row.id+'">Elle işaretle</button>';
-    actions += '</div>';
-    return statusBadge(row) + actions;
-  }
-  function bindStatusCellButtons(scope){
-    scope.querySelectorAll('[data-focus]').forEach(function(b){ b.onclick = function(){ focusRow(b.getAttribute('data-focus')); }; });
-    scope.querySelectorAll('[data-fix]').forEach(function(b){ b.onclick = function(){ startManualPin(b.getAttribute('data-fix')); }; });
-    scope.querySelectorAll('[data-check]').forEach(function(b){ b.onclick = function(){ enqueueGeocode([b.getAttribute('data-check')]); }; });
+    return '<span class="badge pending">⏳ Henüz onaylanmadı</span>';
   }
 
   function renderTable(){
@@ -941,11 +751,9 @@
         var cls = c.key==='servis' ? 'col-servis' : '';
         return '<td class="'+cls+'"><input data-id="'+row.id+'" data-k="'+c.key+'" value="'+val.replace(/"/g,'&quot;')+'"></td>';
       }).join('');
-      tr.innerHTML = cells + '<td class="status-cell">' + statusCellHtml(row) + '</td>';
+      tr.innerHTML = cells + '<td class="status-cell">' + statusBadge(row) + '</td>';
       tbody.appendChild(tr);
     });
-
-    bindStatusCellButtons(tbody);
 
     tbody.querySelectorAll('input').forEach(function(inp){
       inp.addEventListener('input', function(){
@@ -962,7 +770,7 @@
         tr.className = (row.servisFlag || row.geoStatus==='fail') ? 'flag-row' : '';
         if(k==='adres' || k==='servis'){
           var statusCell = tr.querySelector('.status-cell');
-          if(statusCell){ statusCell.innerHTML = statusCellHtml(row); bindStatusCellButtons(tr); }
+          if(statusCell) statusCell.innerHTML = statusBadge(row);
           renderSummary();
         }
       });
@@ -973,12 +781,12 @@
     if(!school) return;
     var total = school.rows.length;
     var missingServis = school.rows.filter(function(r){ return r.servisFlag; }).length;
-    var notFound = school.rows.filter(function(r){ return r.geoStatus!=='ok'; }).length;
+    var notConfirmed = school.rows.filter(function(r){ return r.geoStatus!=='ok'; }).length;
     var wrap = document.getElementById('summaryChips');
     wrap.innerHTML =
       '<span class="chip">' + total + ' öğrenci</span>' +
       (missingServis ? ('<span class="chip warn">⚠ ' + missingServis + ' satırda servis eksik</span>') : '<span class="chip ok">Servis bilgisi tam</span>') +
-      (notFound ? ('<span class="chip warn">📍 ' + notFound + ' adres haritada doğrulanmadı</span>') : '<span class="chip ok">Tüm adresler haritada doğrulandı</span>');
+      (notConfirmed ? ('<span class="chip warn">📍 ' + notConfirmed + ' adres Google Haritalar\'dan henüz onaylanmadı</span>') : '<span class="chip ok">Tüm adresler Google Haritalar\'dan onaylandı</span>');
   }
 
   function renderAll(){
@@ -987,10 +795,10 @@
     document.getElementById('dropSection').style.display = hasSchool && school.rows.length===0 ? 'block' : 'none';
     document.getElementById('resultSection').style.display = hasSchool && school.rows.length>0 ? 'block' : 'none';
     document.getElementById('btnDownload').disabled = !(hasSchool && school.rows.length>0);
-    if(hasSchool && school.rows.length>0){ renderSummary(); renderTable(); renderMap(); }
-    else if(map){ markersLayer.clearLayers(); }
+    if(hasSchool && school.rows.length>0){ renderSummary(); renderTable(); }
   }
 
+  // ---------- events ----------
   function wireEvents(){
     document.getElementById('btnLogin').addEventListener('click', doLogin);
     document.getElementById('loginPass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
@@ -1027,27 +835,11 @@
     });
     document.getElementById('btnImportCorrections').addEventListener('click', function(){ if(school) document.getElementById('correctionsFileInput').click(); });
     document.getElementById('correctionsFileInput').addEventListener('change', function(e){ var f=e.target.files[0]; if(f) handleMapsCorrectionFile(f); e.target.value=''; });
-    document.getElementById('btnCheckAll').addEventListener('click', function(){
-      if(!school) return;
-      var ids = school.rows.filter(function(r){ return !(r.lat && r.lng); }).map(function(r){ return r.id; });
-      if(!ids.length){ showToast('Kontrol edilecek adres yok, hepsi bulunmuş.', 'success'); return; }
-      enqueueGeocode(ids);
-    });
-    document.getElementById('btnRecheckFailed').addEventListener('click', function(){
-      if(!school) return;
-      var ids = school.rows.filter(function(r){ return r.geoStatus==='fail'; }).map(function(r){ return r.id; });
-      if(!ids.length){ showToast('Bulunamayan adres yok.', 'success'); return; }
-      ids.forEach(function(id){ var r = school.rows.find(function(x){return x.id===id;}); if(r) r.geoStatus='pending'; });
-      enqueueGeocode(ids);
-    });
 
-    document.getElementById('pinBannerCancel').addEventListener('click', cancelManualPin);
-    document.getElementById('progressCancel').addEventListener('click', function(){ geocodeCancel = true; });
     document.getElementById('btnHamburger').addEventListener('click', function(){ document.getElementById('sidebar').classList.toggle('open'); });
-    document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeSchoolModal(); cancelManualPin(); } });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeSchoolModal(); } });
   }
 
-  initMap();
   wireEvents();
 })();
 </script>
