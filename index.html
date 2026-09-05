@@ -635,7 +635,7 @@
     }catch(e){ console.error(e); showToast('İndirme başarısız oldu.', 'error'); }
   }
 
-  function parseKmlText(kmlText){
+  function parseKmlPlacemarks(kmlText){
     var xml = new DOMParser().parseFromString(kmlText, 'text/xml');
     var perr = xml.getElementsByTagName('parsererror');
     if(perr && perr.length) throw new Error('KML dosyası okunamadı (bozuk format).');
@@ -644,15 +644,25 @@
     for(var i=0;i<placemarks.length;i++){
       var pm = placemarks[i];
       var nameEl = pm.getElementsByTagName('name')[0];
-      var name = nameEl ? nameEl.textContent.trim() : '';
+      var nameTag = nameEl ? nameEl.textContent.trim() : '';
+
       var coordEls = pm.getElementsByTagName('coordinates');
-      if(!name || !coordEls.length) continue;
+      if(!coordEls.length) continue;
       var raw = (coordEls[0].textContent || '').trim().split(/\s+/)[0];
       var parts = raw.split(',');
       if(parts.length<2) continue;
       var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
       if(isNaN(lat) || isNaN(lng)) continue;
-      out.push({ name: name, lat: lat, lng: lng });
+
+      var ext = {};
+      var dataEls = pm.getElementsByTagName('Data');
+      for(var d=0; d<dataEls.length; d++){
+        var key = dataEls[d].getAttribute('name');
+        var valEl = dataEls[d].getElementsByTagName('value')[0];
+        var val = valEl ? valEl.textContent.trim() : '';
+        if(key) ext[key.trim()] = val;
+      }
+      out.push({ nameTag: nameTag, ext: ext, lat: lat, lng: lng });
     }
     return out;
   }
@@ -672,19 +682,32 @@
       if(/\.kmz$/i.test(file.name)) text = await extractKmlFromKmz(file);
       else text = await file.text();
 
-      var placemarks = parseKmlText(text);
+      var placemarks = parseKmlPlacemarks(text);
       if(!placemarks.length){ showToast('Dosyada konum bilgisi bulunamadı.', 'error'); return; }
 
-      var byName = {};
+      var bySira = {}; // numeric sira -> [ids]
+      var byName = {}; // normalized ad soyad -> [ids]
       school.rows.forEach(function(r){
-        var key = normHeader(r.adSoyad);
-        (byName[key] = byName[key] || []).push(r.id);
+        if(r.sira!==undefined && r.sira!==null && String(r.sira).trim()!==''){
+          var num = parseFloat(String(r.sira).replace(',', '.'));
+          if(!isNaN(num)){ (bySira[num] = bySira[num] || []).push(r.id); }
+        }
+        var nk = normHeader(r.adSoyad);
+        (byName[nk] = byName[nk] || []).push(r.id);
       });
 
       var updated = 0, notFound = 0, ambiguous = 0;
       placemarks.forEach(function(pmk){
-        var key = normHeader(pmk.name);
-        var ids = byName[key];
+        var ids = null;
+        var siraExt = pmk.ext['Sıra No'];
+        if(siraExt){
+          var num = parseFloat(String(siraExt).replace(',', '.'));
+          if(!isNaN(num) && bySira[num]) ids = bySira[num];
+        }
+        if(!ids){
+          var adSoyadExt = pmk.ext['Ad Soyad'] || pmk.nameTag;
+          if(adSoyadExt) ids = byName[normHeader(adSoyadExt)];
+        }
         if(!ids || !ids.length){ notFound++; return; }
         if(ids.length>1){ ambiguous++; return; }
         var row = school.rows.find(function(r){ return r.id===ids[0]; });
@@ -698,8 +721,8 @@
       updateIndexStatsForActive();
       renderAll();
       var msg = updated + ' öğrencinin konumu güncellendi.';
-      if(notFound) msg += ' ' + notFound + ' isim eşleşmedi.';
-      if(ambiguous) msg += ' ' + ambiguous + ' isim birden fazla öğrenciyle eşleştiği için atlandı.';
+      if(notFound) msg += ' ' + notFound + ' kayıt eşleşmedi.';
+      if(ambiguous) msg += ' ' + ambiguous + ' kayıt birden fazla öğrenciyle eşleştiği için atlandı.';
       showToast(msg, updated ? 'success' : 'error');
     }catch(err){
       console.error(err);
